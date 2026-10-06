@@ -268,7 +268,7 @@ class TestHelperMethods:
 class TestDistillWithModule:
     """Tests for distill() method with nn.Module blocks."""
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_distill_basic_module(self, mock_pysr_class, symbolic_model, sample_inputs, fast_sr_params, mock_pysr_regressor):
         """Test basic distill() call with nn.Module."""
         mock_pysr_class.return_value = mock_pysr_regressor
@@ -281,7 +281,7 @@ class TestDistillWithModule:
         assert 1 in symbolic_model.pysr_regressor
         assert 2 in symbolic_model.pysr_regressor
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_distill_specific_dimension(self, mock_pysr_class, symbolic_model, sample_inputs, fast_sr_params):
         """Test distill() with specific output dimension."""
         mock_reg = MagicMock()
@@ -294,7 +294,7 @@ class TestDistillWithModule:
         assert 1 in symbolic_model.pysr_regressor
         assert len(symbolic_model.pysr_regressor) == 1
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_distill_output_dim_zero_fits_only_that_dimension(self, mock_pysr_class, symbolic_model, sample_inputs, fast_sr_params):
         """Regression test: output_dim=0 must select dimension 0, not fall back to "all dims".
 
@@ -313,7 +313,7 @@ class TestDistillWithModule:
         assert mock_pysr_class.call_count == 1
         assert list(symbolic_model.pysr_regressor.keys()) == [0]
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_distill_output_dim_none_fits_all_dimensions(self, mock_pysr_class, symbolic_model, sample_inputs, fast_sr_params, mock_pysr_regressor):
         """Companion test: output_dim=None (the default) must still fit every dimension."""
         mock_pysr_class.return_value = mock_pysr_regressor
@@ -323,7 +323,7 @@ class TestDistillWithModule:
         assert mock_pysr_class.call_count == 3
         assert set(symbolic_model.pysr_regressor.keys()) == {0, 1, 2}
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_distill_with_parent_model(self, mock_pysr_class, sample_inputs, fast_sr_params, mock_pysr_regressor):
         """Test distill() with parent_model for layer-level analysis."""
         mock_pysr_class.return_value = mock_pysr_regressor
@@ -369,7 +369,7 @@ class TestDistillWithModule:
 class TestDistillWithCallable:
     """Tests for distill() method with Callable functions."""
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_distill_numpy_function(self, mock_pysr_class, sample_inputs_np, fast_sr_params):
         """Test distill() with numpy function."""
         mock_reg = MagicMock()
@@ -386,7 +386,7 @@ class TestDistillWithCallable:
         # Check that regressor was created
         assert 0 in model.pysr_regressor
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_distill_torch_function(self, mock_pysr_class, sample_inputs_np, fast_sr_params):
         """Test distill() with torch function returning tensor."""
         mock_reg = MagicMock()
@@ -403,7 +403,7 @@ class TestDistillWithCallable:
 
         assert 0 in model.pysr_regressor
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_distill_multi_output_callable(self, mock_pysr_class, sample_inputs_np, fast_sr_params, mock_pysr_regressor):
         """Test distill() with callable returning multiple outputs."""
         mock_pysr_class.return_value = mock_pysr_regressor
@@ -419,7 +419,6 @@ class TestDistillWithCallable:
         assert len(model.pysr_regressor) == 2
         assert 0 in model.pysr_regressor
         assert 1 in model.pysr_regressor
-
 
 # ============================================================================
 # Test SLIME Functionality
@@ -503,7 +502,7 @@ class TestSLIME:
         with pytest.raises(ValueError, match="J_nn"):
             model._apply_slime_sampling(inputs, simple_callable, slime_params, {}, {})
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_distill_with_slime_mode(self, mock_pysr_class, sample_inputs_np, fast_sr_params):
         """Test distill() with SLIME=True."""
         mock_reg = MagicMock()
@@ -549,7 +548,7 @@ class TestEquationSwitching:
         # Model should not be in equation mode
         assert not hasattr(symbolic_model, '_using_equation')
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_switch_to_symbolic_success(self, mock_pysr_class, symbolic_model, sample_inputs):
         """Test successful switch_to_symbolic()."""
         # Mock PySR to return valid equation
@@ -573,7 +572,7 @@ class TestEquationSwitching:
         assert symbolic_model._equation_funcs is not None
         assert len(symbolic_model._equation_funcs) == 3
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_switch_to_block(self, mock_pysr_class, symbolic_model, sample_inputs):
         """Test switch_to_block() to restore original block."""
         mock_reg = MagicMock()
@@ -595,7 +594,7 @@ class TestEquationSwitching:
 
         assert not symbolic_model._using_equation
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_get_symbolic_function(self, mock_pysr_class, symbolic_model, sample_inputs):
         """Test get_symbolic_function() method."""
         mock_reg = MagicMock()
@@ -769,7 +768,7 @@ class TestForward:
         output_np = model(inputs_np)
         assert isinstance(output_np, np.ndarray)
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_forward_symbolic_mode(self, mock_pysr_class, symbolic_model, sample_inputs):
         """Test forward() in symbolic equation mode."""
         # Setup mock regressor
@@ -820,7 +819,7 @@ class TestForward:
 class TestVariableTransforms:
     """Tests for variable transformation functionality."""
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_distill_with_transforms_module(self, mock_pysr_class, sample_inputs, fast_sr_params, mock_pysr_regressor):
         """Test distill() with variable transforms for nn.Module."""
         mock_pysr_class.return_value = mock_pysr_regressor
@@ -849,7 +848,7 @@ class TestVariableTransforms:
         assert len(model._variable_transforms) == 3
         assert model._variable_names == variable_names
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_distill_with_transforms_callable(self, mock_pysr_class, sample_inputs_np, fast_sr_params):
         """Test distill() with variable transforms for Callable."""
         mock_reg = MagicMock()
@@ -910,7 +909,7 @@ class TestErrorHandling:
         with pytest.raises(ValueError, match="No"):
             symbolic_model.get_symbolic_function(dim=0)
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_get_symbolic_function_invalid_dimension(self, mock_pysr_class, symbolic_model, sample_inputs):
         """Test get_symbolic_function() with invalid dimension."""
         mock_reg = MagicMock()
@@ -924,7 +923,7 @@ class TestErrorHandling:
         with pytest.raises(ValueError, match="out of range"):
             symbolic_model.get_symbolic_function(dim=10)
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_distill_output_dim_out_of_range(self, mock_pysr_class, sample_inputs_np):
         """Test distill() with output_dim out of range for Callable."""
         def my_func(x):
@@ -952,7 +951,7 @@ class TestErrorHandling:
 class TestIntegration:
     """Integration tests for complete workflows."""
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_complete_workflow_module(self, mock_pysr_class, sample_inputs):
         """Test complete workflow: distill -> switch -> forward."""
         # Setup mock
@@ -989,7 +988,7 @@ class TestIntegration:
 
         assert output_block.shape == (10, 3)
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_complete_workflow_callable(self, mock_pysr_class, sample_inputs_np):
         """Test complete workflow with callable function."""
         mock_reg = MagicMock()
@@ -1035,7 +1034,7 @@ class TestIOCaching:
         assert symbolic_model.distill_data is None
         assert symbolic_model.distill_data_slime is None
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_cache_storage_module(self, mock_pysr_class, symbolic_model, sample_inputs, fast_sr_params, mock_pysr_regressor):
         """Test that cache is stored after distill() for nn.Module."""
         mock_pysr_class.return_value = mock_pysr_regressor
@@ -1057,7 +1056,7 @@ class TestIOCaching:
         assert symbolic_model.distill_data['inputs'].shape == (50, 5)
         assert symbolic_model.distill_data['parent_model'] is None
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_cache_storage_callable(self, mock_pysr_class, sample_inputs_np, fast_sr_params):
         """Test that cache is stored after distill() for Callable."""
         mock_reg = MagicMock()
@@ -1076,7 +1075,7 @@ class TestIOCaching:
         assert 'sr_inputs' in model.distill_data
         assert 'sr_outputs' in model.distill_data
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_cache_hit_module(self, mock_pysr_class, symbolic_model, sample_inputs, fast_sr_params, mock_pysr_regressor, caplog):
         """Test cache hit on second distill() call with same inputs."""
         mock_pysr_class.return_value = mock_pysr_regressor
@@ -1092,7 +1091,7 @@ class TestIOCaching:
         log_messages = [record.message for record in caplog.records]
         assert any("Cache hit" in msg or "🔄" in msg for msg in log_messages)
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_cache_miss_different_inputs(self, mock_pysr_class, symbolic_model, fast_sr_params, mock_pysr_regressor):
         """Test cache miss when inputs change."""
         mock_pysr_class.return_value = mock_pysr_regressor
@@ -1112,7 +1111,7 @@ class TestIOCaching:
         second_cache_inputs = symbolic_model.distill_data['inputs']
         assert not np.array_equal(first_cache_inputs, second_cache_inputs)
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_cache_separate_slime_standard(self, mock_pysr_class, sample_inputs_np, fast_sr_params):
         """Test that SLIME and standard mode use separate caches."""
         mock_reg = MagicMock()
@@ -1141,7 +1140,7 @@ class TestIOCaching:
         assert 'slime_params' in model.distill_data_slime
         assert 'slime_params' not in model.distill_data
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_cache_slime_params_validation(self, mock_pysr_class, sample_inputs_np, fast_sr_params):
         """Test that cache is invalidated when SLIME params change."""
         mock_reg = MagicMock()
@@ -1167,7 +1166,7 @@ class TestIOCaching:
         second_cache = model.distill_data_slime
         assert not np.array_equal(first_cache['slime_params']['x'], second_cache['slime_params']['x'])
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_cache_data_matches_forward_pass_module(self, mock_pysr_class, simple_layer, sample_inputs, fast_sr_params, mock_pysr_regressor):
         """Test that cached sr_outputs match actual forward pass outputs for nn.Module."""
         mock_pysr_class.return_value = mock_pysr_regressor
@@ -1185,7 +1184,7 @@ class TestIOCaching:
         cached_output = model.distill_data['sr_outputs']
         np.testing.assert_array_almost_equal(cached_output, expected_output, decimal=5)
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_cache_data_matches_forward_pass_callable(self, mock_pysr_class, sample_inputs_np, fast_sr_params):
         """Test that cached sr_outputs match actual function outputs for Callable."""
         mock_reg = MagicMock()
@@ -1207,7 +1206,7 @@ class TestIOCaching:
         cached_output = model.distill_data['sr_outputs'].flatten()
         np.testing.assert_array_almost_equal(cached_output, expected_output, decimal=5)
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_clear_cache_method(self, mock_pysr_class, symbolic_model, sample_inputs, fast_sr_params, mock_pysr_regressor, caplog):
         """Test clear_cache() method."""
         mock_pysr_class.return_value = mock_pysr_regressor
@@ -1228,7 +1227,7 @@ class TestIOCaching:
         log_messages = [record.message for record in caplog.records]
         assert any("Cache cleared" in msg or "✅" in msg for msg in log_messages)
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_cache_with_parent_model(self, mock_pysr_class, fast_sr_params, mock_pysr_regressor):
         """Test that cache stores parent_model reference correctly."""
         mock_pysr_class.return_value = mock_pysr_regressor
@@ -1259,7 +1258,7 @@ class TestIOCaching:
         # Check cache stores parent model reference
         assert symbolic_layer.distill_data['parent_model'] is parent
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_cache_invalidated_parent_model_change(self, mock_pysr_class, fast_sr_params, mock_pysr_regressor):
         """Test that cache is invalidated when parent_model changes."""
         mock_pysr_class.return_value = mock_pysr_regressor
@@ -1283,7 +1282,7 @@ class TestIOCaching:
         # Cache should have parent model reference now
         assert symbolic_layer.distill_data['parent_model'] is parent
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_cache_with_variable_transforms(self, mock_pysr_class, sample_inputs, fast_sr_params, mock_pysr_regressor):
         """Test that cache stores transformed inputs correctly."""
         mock_pysr_class.return_value = mock_pysr_regressor
@@ -1312,7 +1311,7 @@ class TestIOCaching:
         assert model.distill_data is not None
         assert model.distill_data['sr_inputs'].shape[1] == 3  # 3 transformed variables
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_cache_preserves_sr_params_rerun(self, mock_pysr_class, symbolic_model, sample_inputs, mock_pysr_regressor):
         """Test that different SR params can be used with cached I/O data."""
         mock_pysr_class.return_value = mock_pysr_regressor
@@ -1365,7 +1364,7 @@ class TestStateDictSaveLoad:
         assert metadata['_variable_names'] == ['x', 'y', 'z']
         assert metadata['_using_equation'] == False
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_save_load_basic_workflow(self, mock_pysr_class, sample_inputs, fast_sr_params, picklable_mock_regressor, tmp_path):
         """Test basic save/load workflow with state_dict."""
         mock_pysr_class.return_value = picklable_mock_regressor
@@ -1388,7 +1387,7 @@ class TestStateDictSaveLoad:
         assert model2.block_name == "save_test"
         assert len(model2.pysr_regressor) == len(model1.pysr_regressor)
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_save_load_with_regressors(self, mock_pysr_class, sample_inputs, fast_sr_params, picklable_mock_regressor, tmp_path):
         """Test that PySR regressors are saved and loaded correctly."""
         mock_pysr_class.return_value = picklable_mock_regressor
@@ -1441,7 +1440,7 @@ class TestStateDictSaveLoad:
         assert model2.current_dim == model1.current_dim
         assert torch.equal(model2.pruning_mask, model1.pruning_mask)
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_save_load_equation_mode(self, mock_pysr_class, sample_inputs, picklable_mock_regressor, tmp_path):
         """Test save/load in equation mode."""
         # Use picklable mock with simple equation
@@ -1484,7 +1483,7 @@ class TestStateDictSaveLoad:
 
         assert model2._variable_names == ['alpha', 'beta', 'gamma']
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_forward_consistency_after_load(self, mock_pysr_class, sample_inputs, fast_sr_params, mock_pysr_regressor, tmp_path):
         """Test that forward pass produces same results after save/load."""
         mock_pysr_class.return_value = mock_pysr_regressor
@@ -1604,7 +1603,7 @@ class TestStateDictSaveLoad:
         assert model2.pysr_regressor == {}
         assert model2.SLIME_pysr_regressor == {}
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_rebuild_equation_funcs_success(self, mock_pysr_class, sample_inputs, picklable_mock_regressor, tmp_path):
         """Test that equation functions are rebuilt on load."""
         # Use picklable mock
@@ -1662,7 +1661,7 @@ class TestStateDictSaveLoad:
         assert 1 not in model2.pysr_regressor
         assert 2 in model2.pysr_regressor
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_save_load_with_slime_regressors(self, mock_pysr_class, sample_inputs_np, tmp_path):
         """Test that SLIME regressors are saved and loaded correctly."""
         mock_reg = PicklableMockRegressor()
@@ -1690,7 +1689,7 @@ class TestStateDictSaveLoad:
         assert len(model2.SLIME_pysr_regressor) == len(model1.SLIME_pysr_regressor)
         assert len(model2.SLIME_pysr_regressor) > 0
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_save_load_with_variable_transforms(self, mock_pysr_class, sample_inputs, tmp_path):
         """Test that variable transforms are serialized and restored with dill."""
         mock_reg = PicklableMockRegressor()
@@ -1809,7 +1808,7 @@ class TestStateDictSaveLoad:
         # Should be None
         assert model2._variable_transforms is None
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_multiple_save_load_cycles(self, mock_pysr_class, sample_inputs, tmp_path):
         """Test that multiple save/load cycles preserve state correctly."""
         mock_reg = PicklableMockRegressor()
@@ -1869,7 +1868,7 @@ class TestStateDictSaveLoad:
         assert model4._variable_transforms[0](test_val) == 4.0
         assert model4._variable_transforms[1](test_val) == 6.0
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_save_load_deserialization_failure(self, mock_pysr_class, sample_inputs, tmp_path):
         """Test graceful handling when transforms fail to deserialize (corrupted data)."""
         mock_reg = PicklableMockRegressor()
@@ -1908,7 +1907,7 @@ class TestStateDictSaveLoad:
         # Transforms should be None due to deserialization failure
         assert model2._variable_transforms is None
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_rebuild_equation_funcs_failure(self, mock_pysr_class, sample_inputs, tmp_path):
         """Test graceful handling when equation functions cannot be rebuilt during load."""
         mock_reg = PicklableMockRegressor(equation="x0 + x1", loss=0.001, complexity=2)
@@ -1950,7 +1949,7 @@ class TestStateDictSaveLoad:
         assert model2._using_equation == False
         assert model2._equation_funcs == {}
 
-    @patch('symtorch.SymbolicModel.PySRRegressor')
+    @patch('symtorch.SymbolicModel._default_regressor_factory')
     def test_regressor_deserialization_failure(self, mock_pysr_class, sample_inputs, tmp_path):
         """Test handling when regressor deserialization fails (corrupted data)."""
         mock_reg = PicklableMockRegressor()

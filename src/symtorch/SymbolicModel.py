@@ -2,7 +2,7 @@
 SymTorch SymbolicModel Module
 
 This module provides a wrapper for components of (or whole) ML models that adds symbolic regression
-capabilities using PySR (Python Symbolic Regression).
+capabilities using PySR by default or an injected regressor backend.
 """
 # Warnings configuration
 import warnings
@@ -14,7 +14,7 @@ import math
 import os
 import time
 from contextlib import contextmanager
-from typing import Any, Callable, Dict, List, Literal, Optional, Union
+from typing import Any, Callable, Dict, List, Literal, Optional, Protocol, TypeAlias, Union
 
 # Third-party libraries
 import dill
@@ -22,7 +22,6 @@ import numpy as np
 import sympy
 import torch
 import torch.nn as nn
-from pysr import *
 from sklearn.neighbors import NearestNeighbors
 from sympy import lambdify
 
@@ -31,9 +30,32 @@ from sympy import lambdify
 logger = logging.getLogger(__name__)
 
 
+class SymbolicRegressor(Protocol):
+    """Interface required from a symbolic regression backend."""
+
+    equations_: Any
+
+    def fit(self, *args: Any, **kwargs: Any) -> Any:
+        ...
+
+    def get_best(self) -> Dict[str, Any]:
+        ...
+
+
+RegressorFactory: TypeAlias = Callable[..., SymbolicRegressor]
+
+
+def _default_regressor_factory(**params: Any) -> SymbolicRegressor:
+    """Create the default PySR backend without importing PySR at module load."""
+    from pysr import PySRRegressor
+
+    return PySRRegressor(**params)
+
+
 # TODO: break up this class using composition?
 # TODO: integrate dim reduction workflow (e.g., pca, proj. layer training, etc...)
 class SymbolicModel(nn.Module):
+    """Wrap a model component with an optional symbolic regression backend."""
 
     # Default PySR parameters
     DEFAULT_SR_PARAMS = {
@@ -54,7 +76,8 @@ class SymbolicModel(nn.Module):
         "var": None                 # Variance for perturbations (auto-computed if None)
     }
 
-    def __init__(self, block: Union[nn.Module, Callable], block_name: str = None):
+    def __init__(self, block: Union[nn.Module, Callable], block_name: Optional[str] = None,
+                 regressor_factory: Optional[RegressorFactory] = None):
         """
         Initialize a SymbolicModel wrapper for symbolic regression.
 
@@ -70,6 +93,10 @@ class SymbolicModel(nn.Module):
                   scikit-learn models, TensorFlow models, pure Python functions)
             block_name (str, optional): Human-readable identifier for this block.
                 If None, generates a unique name based on object ID.
+            regressor_factory (Callable, optional): Factory for the symbolic regression
+                backend. It receives the merged regression parameters as keyword
+                arguments. If None, PySRRegressor is imported and used when distill()
+                first creates a regressor.
 
         Examples:
             >>> # Layer-level mode: Wrap a PyTorch layer
@@ -105,6 +132,7 @@ class SymbolicModel(nn.Module):
         super().__init__()
         self.symtorch_block = block
         self.block_name = block_name or f"block_{id(self)}"
+        self.regressor_factory = regressor_factory
 
         if not block_name:
             logger.info(f"No name specified for this block. Label is {self.block_name}.")
@@ -116,6 +144,11 @@ class SymbolicModel(nn.Module):
         self.distill_data = None  # Cache for standard distill
         self.distill_data_slime = None  # Cache for SLIME distill
 
+    def _make_regressor(self, params: Dict[str, Any]) -> SymbolicRegressor:
+        """Create a configured symbolic regression backend."""
+        factory = self.regressor_factory or _default_regressor_factory
+        return factory(**params)
+
     def _create_sr_params(self, save_path: str, run_id: str, custom_params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Create SR parameters by merging defaults with custom parameters.
@@ -126,7 +159,7 @@ class SymbolicModel(nn.Module):
             custom_params (Dict[str, Any], optional): Custom parameters to override defaults
 
         Returns:
-            Dict[str, Any]: Final SR parameters for PySRRegressor
+            Dict[str, Any]: Final symbolic regressor parameters
         """
         output_name = f"SR_output/{self.block_name}"
         if save_path is not None:
@@ -453,8 +486,9 @@ class SymbolicModel(nn.Module):
         Perform symbolic regression to discover symbolic equations.
 
         This is the main method for extracting symbolic representations from neural networks
-        or arbitrary functions. It uses PySR (Python Symbolic Regression) to find mathematical
-        expressions that approximate the behavior of the wrapped block or function.
+        or arbitrary functions. It uses the configured symbolic regression backend (PySR by
+        default) to find mathematical expressions that approximate the behavior of the wrapped
+        block or function.
 
         The method supports multiple operational modes:
         - Layer-level mode: Analyze intermediate activations within a parent model
@@ -477,13 +511,13 @@ class SymbolicModel(nn.Module):
                 inputs and return a 1D tensor/array. Useful for feature engineering.
             save_path (str, optional): Directory path to save PySR outputs.
                 If None, saves to 'SR_output/{block_name}'.
-            sr_params (Dict[str, Any], optional): Custom PySR parameters to override defaults.
+            sr_params (Dict[str, Any], optional): Custom regressor parameters to override defaults.
                 Common parameters:
                 - 'niterations': Number of iterations (default: 400)
                 - 'binary_operators': List of binary ops (default: ["+", "*"])
                 - 'unary_operators': List of unary ops (default: ["inv(x) = 1/x", "sin", "exp"])
                 - 'complexity_of_operators': Complexity constraints (default: {"sin": 3, "exp": 3})
-            fit_params (Dict[str, Any], optional): Parameters passed to PySRRegressor.fit().
+            fit_params (Dict[str, Any], optional): Parameters passed to the regressor's fit().
                 - 'variable_names': List of custom names for input variables
                 - 'weights': Sample weights for weighted regression
             SLIME (bool, optional): Enable SLIME mode for local interpretability.
@@ -497,9 +531,9 @@ class SymbolicModel(nn.Module):
                 - 'var': Variance for perturbations (default: auto-computed)
 
         Returns:
-            Union[PySRRegressor, Dict[int, PySRRegressor]]:
-                - If output_dim is specified: Single PySRRegressor for that dimension
-                - If output_dim is None: Dictionary mapping dimension indices to PySRRegressors
+            Union[SymbolicRegressor, Dict[int, SymbolicRegressor]]:
+                - If output_dim is specified: Single regressor for that dimension
+                - If output_dim is None: Dictionary mapping dimension indices to regressors
 
         Raises:
             ValueError: If parent_model is provided with a Callable (non-nn.Module) block
@@ -727,7 +761,7 @@ class SymbolicModel(nn.Module):
 
                     run_id = f"dim{dim_idx}_{timestamp}"
                     final_sr_params = self._create_sr_params(save_path, run_id, sr_params)
-                    regressor = PySRRegressor(**final_sr_params)
+                    regressor = self._make_regressor(final_sr_params)
 
                     # Find the index of this dimension in the active output
                     active_dims = self.get_active_dimensions()
@@ -757,7 +791,7 @@ class SymbolicModel(nn.Module):
 
                         run_id = f"dim{dim}_{timestamp}"
                         final_sr_params = self._create_sr_params(save_path, run_id, sr_params)
-                        regressor = PySRRegressor(**final_sr_params)
+                        regressor = self._make_regressor(final_sr_params)
 
                         # Prepare fit arguments
                         fit_args = [actual_inputs_numpy, output.detach()[:, dim].cpu().numpy()]
@@ -775,7 +809,7 @@ class SymbolicModel(nn.Module):
 
                     run_id = f"dim{output_dim}_{timestamp}"
                     final_sr_params = self._create_sr_params(save_path, run_id, sr_params)
-                    regressor = PySRRegressor(**final_sr_params)
+                    regressor = self._make_regressor(final_sr_params)
 
                     # Prepare fit arguments
                     fit_args = [actual_inputs_numpy, output.detach()[:, output_dim].cpu().numpy()]
@@ -931,7 +965,7 @@ class SymbolicModel(nn.Module):
 
                     run_id = f"dim{dim}_{timestamp}"
                     final_sr_params = self._create_sr_params(save_path, run_id, sr_params)
-                    regressor = PySRRegressor(**final_sr_params)
+                    regressor = self._make_regressor(final_sr_params)
 
                     # Prepare fit arguments
                     fit_args = [inputs_np, outputs_np[:, dim]]
@@ -952,7 +986,7 @@ class SymbolicModel(nn.Module):
 
                 run_id = f"dim{output_dim}_{timestamp}"
                 final_sr_params = self._create_sr_params(save_path, run_id, sr_params)
-                regressor = PySRRegressor(**final_sr_params)
+                regressor = self._make_regressor(final_sr_params)
 
                 # Prepare fit arguments
                 fit_args = [inputs_np, outputs_np[:, output_dim]]
